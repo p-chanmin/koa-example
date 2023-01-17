@@ -1,35 +1,40 @@
 const jwt = require('jsonwebtoken');
+const { register, login } = require('./query');
+const crypto = require('crypto');
+
 
 /** 해당 id의 회원정보들 */
 exports.info = (ctx, next) => {
     let id = ctx.params.id;
     ctx.body = `${id} 회원에 대한 정보`;
 }
-
-
-exports.info = (ctx, next) => {
-    let id = ctx.params.id;
-    ctx.body = `${id} 회원에 대한 정보`;
-}
-
+/** 회원 가입 */
 exports.register = async (ctx, next) => {
-    // 회원가입 처리 모듈
+    let { email, password, name } = ctx.request.body;
+    let result = crypto.pbkdf2Sync(password, process.env.APP_KEY, 50, 255, 'sha512');
+    
+    let { affectedRows } = await register(email, result.toString('base64'), name);
 
-    let token = await generteToken({name: 'my-name'});
-    ctx.body = token;
+    if(affectedRows > 0){
+        let token = await generteToken({ name });
+        ctx.body = token;
+    } else{
+        ctx.body = {result: "fail"};
+    }
 }
-
+/** 로그인 */
 exports.login = async (ctx, next) => {
-    // 로그인 모듈
-    let { id, pw } = ctx.request.body;
-    let result = "";
-    if(id === 'admin' && pw === '1234'){
-        result = await generteToken({name: 'my-name'});
+    let { email, password } = ctx.request.body;
+    let result = crypto.pbkdf2Sync(password, process.env.APP_KEY, 50, 255, 'sha512');
+
+    let item = await login(email, result.toString('base64'));
+
+    if(item == null){
+        ctx.body = {result: "fail"};
+    } else {
+        let token = await generteToken({name: item.name});
+        ctx.body = token;
     }
-    else{
-        result = "아이디 혹은 패스워드가 올바르지 않습니다.";
-    }
-    ctx.body = result;
 }
 
 /**
